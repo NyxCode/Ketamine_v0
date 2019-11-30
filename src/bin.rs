@@ -96,10 +96,20 @@ lazy_static! {
         use Rule::*;
         use Assoc::*;
 
+        let comp = Operator::new(op_eq, Left) |
+                   Operator::new(op_not_eq, Left) |
+                   Operator::new(op_gt, Left) |
+                   Operator::new(op_lt, Left) |
+                   Operator::new(op_ge, Left) |
+                   Operator::new(op_le, Left);
+
+
         PrecClimber::new(vec![
-            Operator::new(op_add, Left) | Operator::new(op:sub, Left),
+            comp,
+            Operator::new(op_mod, Left),
+            Operator::new(op_add, Left) | Operator::new(op_sub, Left),
             Operator::new(op_mul, Left) | Operator::new(op_div, Left),
-            Operator::new(op_pow, Right)
+            Operator::new(op_pow, Right),
         ])
     };
 }
@@ -107,14 +117,25 @@ lazy_static! {
 fn eval(expression: Pairs<Rule>) -> AST {
     PREC_CLIMBER.climb(
         expression,
-        |pair: Pair<Rule>| match pair.as_rule() {
-            //Rule::number => recursive_parse(pair).unwrap(),
-            Rule::expression => eval(pair.into_inner()),
-            other => recursive_parse(pair).unwrap(),
-        },
-        |lhs: AST, op: Pair<Rule>, rhs: AST| match op.as_rule() {
-            Rule::op_add => AST::Addition(Box::new(lhs), Box::new(rhs)),
-            _ => unreachable!(),
+        |pair: Pair<Rule>| recursive_parse(pair).unwrap(),
+        |lhs: AST, op: Pair<Rule>, rhs: AST| {
+            let operator = match op.as_rule() {
+                Rule::op_add => BinaryOperator::Add,
+                Rule::op_sub => BinaryOperator::Sub,
+                Rule::op_mul => BinaryOperator::Mul,
+                Rule::op_div => BinaryOperator::Div,
+                Rule::op_pow => BinaryOperator::Pow,
+                Rule::op_eq => BinaryOperator::Eq,
+                Rule::op_not_eq => BinaryOperator::NotEq,
+                Rule::op_gt => BinaryOperator::Gt,
+                Rule::op_lt => BinaryOperator::Lt,
+                Rule::op_ge => BinaryOperator::Ge,
+                Rule::op_le => BinaryOperator::Le,
+                Rule::op_mod => BinaryOperator::Mod,
+                _ => unreachable!()
+            };
+            let operation = BinaryOperation(Box::new(lhs), operator, Box::new(rhs));
+            AST::BinaryOp(operation)
         },
     )
 }
@@ -228,7 +249,7 @@ fn parse_array(pair: Pair<Rule>) -> ParseResult<Array> {
 }
 
 fn parse_if(pair: Pair<Rule>) -> ParseResult<If> {
-    assert_eq!(pair.as_rule(), Rule::id_condition);
+    assert_eq!(pair.as_rule(), Rule::if_condition);
     let mut inner = pair.into_inner();
     let condition = Box::new(recursive_parse(inner.next().unwrap())?);
     let code = parse_code(inner.next().unwrap())?;
@@ -269,12 +290,7 @@ fn recursive_parse(pair: Pair<Rule>) -> AstParseResult {
 fn main() -> Result<(), ParseError<Rule>> {
     let ast = parse_source(
         r#"
-            var messages = ["a", "b"];
-            function on_message(msg) {
-                if msg.content.contains("hey") {
-                    msg.reply(messages[random(0, messages.length)]);
-                }
-            }
+            1 ^ 2 > 3 % 6;
         "#
     )?;
     println!("{}", serde_json::to_string_pretty(&ast).unwrap());
