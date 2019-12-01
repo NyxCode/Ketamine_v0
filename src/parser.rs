@@ -2,7 +2,6 @@ use ordered_float::OrderedFloat;
 use pest::error::{Error as ParseError, ErrorVariant};
 use pest::iterators::{Pair, Pairs};
 use pest::{prec_climber::*, Parser};
-use serde::Serialize;
 
 pub type ParseResult<T> = Result<T, pest::error::Error<Rule>>;
 
@@ -95,7 +94,7 @@ pub enum AST {
     Code(Code),
     Return(Option<Box<AST>>),
     Object(Object),
-    Assignment(Assignment)
+    Assignment(Assignment),
 }
 
 lazy_static! {
@@ -148,7 +147,6 @@ pub fn eval_expr(expression: Pairs<Rule>) -> AST {
 
 pub fn parse_source(src: &str) -> ParseResult<AST> {
     let file = KetaminParser::parse(Rule::FILE, src)?.next().unwrap();
-    println!("{:#?}", file);
     Ok(AST::Code(parse_code(file)?))
 }
 
@@ -209,13 +207,15 @@ pub fn parse_function(pair: Pair<Rule>) -> ParseResult<Function> {
     assert_eq!(pair.as_rule(), Rule::function);
     let mut inner = pair.into_inner();
     let ident = parse_ident(inner.next().unwrap())?;
-    let params = {
-        let mut parameters = vec![];
-        for pair in inner.next().unwrap().into_inner() {
-            parameters.push(parse_ident(pair)?)
+    let mut params = vec![];
+
+    if inner.peek().unwrap().as_rule() == Rule::function_parameters {
+        let params_pair = inner.next().unwrap();
+        for pair in params_pair.into_inner() {
+            params.push(parse_ident(pair)?)
         }
-        parameters
-    };
+    }
+
     let code = parse_code(inner.next().unwrap())?;
     Ok(Function {
         ident,
@@ -228,12 +228,15 @@ pub fn parse_call(pair: Pair<Rule>) -> ParseResult<Call> {
     assert_eq!(pair.as_rule(), Rule::call);
     let mut inner = pair.into_inner();
     let ident = parse_full_ident(inner.next().unwrap())?;
-    let args_pair = inner.next().unwrap();
-    assert_eq!(args_pair.as_rule(), Rule::call_arguments);
     let mut args = vec![];
-    for arg in args_pair.into_inner() {
-        args.push(recursive_parse(arg)?);
+
+    if let Some(args_pair) = inner.next() {
+        assert_eq!(args_pair.as_rule(), Rule::call_arguments);
+        for arg in args_pair.into_inner() {
+            args.push(recursive_parse(arg)?);
+        }
     }
+
     Ok(Call { ident, args })
 }
 

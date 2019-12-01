@@ -1,7 +1,9 @@
-use crate::parser::{parse_source, recursive_parse, BinaryOperation, BinaryOperator, Call, FullIdent, Function, Ident, Var, AST, Assignment};
+use crate::parser::{
+    Assignment, BinaryOperation, BinaryOperator, Call, FullIdent, Function, Ident, Var, AST,
+};
 use ordered_float::OrderedFloat;
-use pest::state;
-use std::cell::{Ref, RefCell};
+
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
@@ -31,7 +33,7 @@ pub enum KetaminObject {
 }
 
 pub type KetaminObjectRef = Rc<RefCell<KetaminObject>>;
-
+pub type ScopeRef = Rc<RefCell<Scope>>;
 
 impl KetaminObject {
     pub fn null() -> KetaminObjectRef {
@@ -55,46 +57,6 @@ impl KetaminObject {
     }
 }
 
-impl KetaminObject {
-    fn expect_function(&self) -> Result<&Function, KetaminError> {
-        if let KetaminObject::Function(function) = self {
-            Ok(function)
-        } else {
-            Err(KetaminError::TypeError {
-                expected: "function".to_owned(),
-                actual: "?".to_owned(),
-            })
-        }
-    }
-
-    fn call(&self, scope: &Rc<RefCell<Scope>>, mut args: Vec<KetaminObjectRef>) -> KetaminResult {
-        match &self {
-            KetaminObject::NativeFunction(function) => function(args),
-            KetaminObject::Function(function) => {
-                let function_scope = child_scope(scope);
-                for idx in 0..function.params.len() {
-                    let parameter = &function.params[idx];
-                    let argument = if args.is_empty() {
-                        KetaminObject::null()
-                    } else {
-                        args.remove(0)
-                    };
-                    function_scope
-                        .deref()
-                        .borrow_mut()
-                        .set_ident(parameter.clone(), argument.clone());
-                }
-
-                eval(&function_scope, AST::Code(function.code.clone()))
-            }
-            _ => Err(KetaminError::TypeError {
-                expected: "function".to_owned(),
-                actual: "?".to_owned(),
-            }),
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct Scope {
     pub parent: Option<Rc<RefCell<Scope>>>,
@@ -111,13 +73,6 @@ impl Default for Scope {
 }
 
 impl Scope {
-    pub fn with_parent(parent: Rc<RefCell<Scope>>) -> Scope {
-        Scope {
-            parent: Some(parent),
-            ..Scope::default()
-        }
-    }
-
     pub fn find_ident(&self, ident: &Ident) -> Option<KetaminObjectRef> {
         if let Some(var) = self.variables.get(ident) {
             Some(var.clone())
@@ -140,6 +95,21 @@ impl Scope {
     pub fn set_ident(&mut self, ident: Ident, value: KetaminObjectRef) {
         self.variables.insert(ident, value);
     }
+
+    pub fn set_full_ident(
+        &self,
+        ident: &FullIdent,
+        value: KetaminObjectRef,
+    ) -> Result<(), KetaminError> {
+        let idents = &ident.0;
+        let mut dict = self
+            .find_ident(&ident.0[0])
+            .ok_or_else(|| KetaminError::UndeclaredVariable(ident.0[0].clone().into()))?;
+        for i in 1..(idents.len() - 1) {
+            dict = dict.call_getter(&idents[i])?;
+        }
+        dict.call_setter(&idents.last().unwrap(), value)
+    }
 }
 
 fn child_scope(parent: &Rc<RefCell<Scope>>) -> Rc<RefCell<Scope>> {
@@ -161,11 +131,11 @@ pub fn eval(scope: &Rc<RefCell<Scope>>, ast: AST) -> Result<KetaminObjectRef, Ke
                     Ok(x) => last_value = Some(x),
                 }
             }
-            Ok(last_value.unwrap_or_else(|| KetaminObject::null()))
+            Ok(last_value.unwrap_or_else(KetaminObject::null))
         }
         AST::Var(Var(ident, value)) => {
             let value = eval(&scope, *value)?;
-            scope.deref().borrow_mut().variables.insert(ident, value);
+            scope.deref().borrow_mut().set_ident(ident, value);
             Ok(KetaminObject::null())
         }
         AST::Number(float) => Ok(KetaminObject::number(*float)),
@@ -179,9 +149,7 @@ pub fn eval(scope: &Rc<RefCell<Scope>>, ast: AST) -> Result<KetaminObjectRef, Ke
                 .borrow()
                 .find_full_ident(&ident)
                 .ok_or_else(|| KetaminError::UndeclaredVariable(ident))?
-                .deref()
-                .borrow()
-                .call(scope, args)
+                .call_self(&scope, args)
         }
         AST::Ident(ident) => scope
             .deref()
@@ -263,9 +231,7 @@ pub fn eval(scope: &Rc<RefCell<Scope>>, ast: AST) -> Result<KetaminObjectRef, Ke
         AST::Boolean(bool) => Ok(KetaminObject::boolean(bool)),
         AST::Assignment(Assignment(ident, value)) => {
             let value = eval(scope, *value)?;
-            scope.borrow().find_full_ident(&ident)
-                .ok_or_else(|| KetaminError::UndeclaredVariable(ident.clone()))?
-                .deref().replace(value.deref().borrow().clone());
+            scope.deref().borrow_mut().set_full_ident(&ident, value)?;
             Ok(KetaminObject::null())
         }
         other => panic!("{:?} unimplemented", other),
@@ -279,6 +245,8 @@ pub trait KetaminObjectExt {
     fn expect_bool(&self) -> Result<bool, KetaminError>;
     fn to_string(&self) -> String;
     fn call_getter(&self, ident: &Ident) -> KetaminResult;
+    fn call_setter(&self, ident: &Ident, value: KetaminObjectRef) -> Result<(), KetaminError>;
+    fn call_self(&self, scope: &ScopeRef, params: Vec<KetaminObjectRef>) -> KetaminResult;
 }
 
 impl KetaminObjectExt for KetaminObjectRef {
@@ -300,7 +268,7 @@ impl KetaminObjectExt for KetaminObjectRef {
 
     fn expect_number(&self) -> Result<OrderedFloat<f64>, KetaminError> {
         match *self.deref().borrow() {
-            KetaminObject::Number(num) => Ok(num.clone()),
+            KetaminObject::Number(num) => Ok(num),
             _ => Err(KetaminError::TypeError {
                 expected: "number".to_owned(),
                 actual: "?".to_owned(),
@@ -353,6 +321,45 @@ impl KetaminObjectExt for KetaminObjectRef {
             Ok(value.clone())
         } else {
             Err(KetaminError::UndeclaredVariable(ident.clone().into()))
+        }
+    }
+
+    fn call_setter(&self, ident: &Ident, value: KetaminObjectRef) -> Result<(), KetaminError> {
+        if let KetaminObject::Dict(ref mut dict) = self.deref().borrow_mut().deref_mut() {
+            dict.insert(ident.0.clone(), value);
+            Ok(())
+        } else {
+            Err(KetaminError::TypeError {
+                expected: "object".to_string(),
+                actual: "?".to_string(),
+            })
+        }
+    }
+
+    fn call_self(&self, scope: &ScopeRef, mut args: Vec<KetaminObjectRef>) -> KetaminResult {
+        match &self.deref().borrow().deref() {
+            KetaminObject::NativeFunction(function) => function(args),
+            KetaminObject::Function(function) => {
+                let function_scope = child_scope(scope);
+                for idx in 0..function.params.len() {
+                    let parameter = &function.params[idx];
+                    let argument = if args.is_empty() {
+                        KetaminObject::null()
+                    } else {
+                        args.remove(0)
+                    };
+                    function_scope
+                        .deref()
+                        .borrow_mut()
+                        .set_ident(parameter.clone(), argument.clone());
+                }
+
+                eval(&function_scope, AST::Code(function.code.clone()))
+            }
+            _ => Err(KetaminError::TypeError {
+                expected: "function".to_owned(),
+                actual: "?".to_owned(),
+            }),
         }
     }
 }
