@@ -1,5 +1,5 @@
-# Ketamin
-*Ketamin* is a simplistic embedded scripting language with a focus on ease of use
+# Ketamine
+*Ketamine* is a simplistic embedded scripting language with a focus on ease of use
 
 ```
 function greet(person) {

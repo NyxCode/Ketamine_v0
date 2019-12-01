@@ -3,8 +3,8 @@ extern crate pest_derive;
 #[macro_use]
 extern crate lazy_static;
 
-use crate::interpreter::KetaminObjectExt;
-use crate::interpreter::{KetaminObject, KetaminObjectRef, KetaminResult, Scope};
+use crate::interpreter::KetamineObjectExt;
+use crate::interpreter::{KetamineObject, KetamineObjectRef, KetamineResult, Scope};
 use crate::parser::{Ident, ParseResult};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -43,7 +43,7 @@ fn main() -> ParseResult<()> {
         variables: HashMap::new(),
     }));
 
-    fn print(args: Vec<KetaminObjectRef>) -> KetaminResult {
+    fn print(args: Vec<KetamineObjectRef>) -> KetamineResult {
         println!(
             "{}",
             args.iter()
@@ -51,12 +51,12 @@ fn main() -> ParseResult<()> {
                 .collect::<Vec<_>>()
                 .join(" ")
         );
-        Ok(KetaminObject::null())
+        Ok(KetamineObject::null())
     }
 
     scope.deref().borrow_mut().set_ident(
         Ident("print".to_owned()),
-        Rc::new(RefCell::new(KetaminObject::NativeFunction(print))),
+        Rc::new(RefCell::new(KetamineObject::NativeFunction(print))),
     );
 
     interpreter::eval(&scope, ast).expect("evaluation failed!");

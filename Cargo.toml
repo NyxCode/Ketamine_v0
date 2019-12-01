@@ -1,5 +1,5 @@
 [package]
-name = "Ketamin"
+name = "Ketamine"
 version = "0.1.0"
 authors = ["Moritz Bischof <moritz.bischof@aleph-alpha.de>"]
 edition = "2018"
