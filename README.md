@@ -10,7 +10,7 @@ function greet(person) {
         } else if person.gender == "female" {
             "Frau";
         },
-        person.first_name, person.last_name + "!"
+        person.last_name + "!"
     );
 }
 
@@ -21,5 +21,6 @@ var myself = {
 };
 greet(myself);
 ```
+`Hallo, Herr Moritz Bischof!`
 
 **This project is not meant for production use yet!**

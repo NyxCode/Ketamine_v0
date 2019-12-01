@@ -25,7 +25,7 @@ fn main() -> ParseResult<()> {
                     } else if person.gender == "female" {
                         "Frau";
                     },
-                    person.first_name, person.last_name + "!"
+                    person.last_name + "!"
                 );
             }
 
