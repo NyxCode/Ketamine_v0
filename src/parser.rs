@@ -8,7 +8,7 @@ pub type ParseResult<T> = Result<T, pest::error::Error<Rule>>;
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
-pub struct KetamineParser;
+pub struct KetaminParser;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Ident(pub String);
@@ -143,7 +143,7 @@ pub fn eval_expr(expression: Pairs<Rule>) -> AST {
 }
 
 pub fn parse_source(src: &str) -> ParseResult<AST> {
-    let file = KetamineParser::parse(Rule::FILE, src)?.next().unwrap();
+    let file = KetaminParser::parse(Rule::FILE, src)?.next().unwrap();
     println!("{:#?}", file);
     Ok(AST::Code(parse_code(file)?))
 }

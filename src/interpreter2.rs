@@ -8,7 +8,7 @@ use std::cell::{RefCell, Ref};
 use std::ops::{Deref, DerefMut};
 
 #[derive(Debug)]
-pub enum KetamineError {
+pub enum KetaminError {
     Unknown,
     VariableRedefined(Ident),
     UndeclaredVariable(FullIdent),
@@ -17,76 +17,76 @@ pub enum KetamineError {
         actual: String,
     },
     ArgumentError,
-    Returned(KetamineObjectRef),
+    Returned(KetaminObjectRef),
 }
 
-pub type KetamineResult = Result<KetamineObjectRef, KetamineError>;
+pub type KetaminResult = Result<KetaminObjectRef, KetaminError>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum KetamineValue {
+pub enum KetaminValue {
     Null,
     Number(OrderedFloat<f64>),
     String(String),
-    Array(Vec<KetamineObject>),
+    Array(Vec<KetaminObject>),
     Boolean(bool),
-    Dict(HashMap<String, KetamineObjectRef>),
+    Dict(HashMap<String, KetaminObjectRef>),
     Function(Function),
-    NativeFunction(fn(Vec<KetamineObjectRef>) -> KetamineResult),
+    NativeFunction(fn(Vec<KetaminObjectRef>) -> KetaminResult),
 }
 
 
 pub type FunctionTable = HashMap<Ident, Rc<Function>>;
 
-pub type KetamineObjectRef = Rc<RefCell<KetamineObject>>;
+pub type KetaminObjectRef = Rc<RefCell<KetaminObject>>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct KetamineObject {
-    pub value: KetamineValue,
+pub struct KetaminObject {
+    pub value: KetaminValue,
     pub methods: FunctionTable,
     pub getters: FunctionTable,
     pub setters: FunctionTable,
 }
 
-impl KetamineObject {
-    pub fn null() -> KetamineObjectRef {
-        RefCell::new(KetamineObject {
-            value: KetamineValue::Null,
+impl KetaminObject {
+    pub fn null() -> KetaminObjectRef {
+        RefCell::new(KetaminObject {
+            value: KetaminValue::Null,
             methods: HashMap::new(),
             getters: HashMap::new(),
             setters: HashMap::new(),
         }).into()
     }
 
-    fn number(num: f64) -> KetamineObjectRef {
-        RefCell::new(KetamineObject {
-            value: KetamineValue::Number(OrderedFloat::from(num)),
+    fn number(num: f64) -> KetaminObjectRef {
+        RefCell::new(KetaminObject {
+            value: KetaminValue::Number(OrderedFloat::from(num)),
             methods: HashMap::new(),
             getters: HashMap::new(),
             setters: HashMap::new(),
         }).into()
     }
 
-    fn boolean(value: bool) -> KetamineObjectRef {
-        RefCell::new(KetamineObject {
-            value: KetamineValue::Boolean(value),
+    fn boolean(value: bool) -> KetaminObjectRef {
+        RefCell::new(KetaminObject {
+            value: KetaminValue::Boolean(value),
             methods: HashMap::new(),
             getters: HashMap::new(),
             setters: HashMap::new(),
         }).into()
     }
 
-    fn dict(value: HashMap<String, KetamineObjectRef>) -> KetamineObjectRef {
-        RefCell::new(KetamineObject {
-            value: KetamineValue::Dict(value),
+    fn dict(value: HashMap<String, KetaminObjectRef>) -> KetaminObjectRef {
+        RefCell::new(KetaminObject {
+            value: KetaminValue::Dict(value),
             methods: Default::default(),
             getters: Default::default(),
             setters: Default::default(),
         }).into()
     }
 
-    fn string(value: String) -> KetamineObjectRef {
-        RefCell::new(KetamineObject {
-            value: KetamineValue::String(value),
+    fn string(value: String) -> KetaminObjectRef {
+        RefCell::new(KetaminObject {
+            value: KetaminValue::String(value),
             methods: Default::default(),
             getters: Default::default(),
             setters: Default::default(),
@@ -94,37 +94,37 @@ impl KetamineObject {
     }
 }
 
-impl KetamineObject {
-    fn expect_function(&self) -> Result<&Function, KetamineError> {
-        if let KetamineValue::Function(function) = &self.value {
+impl KetaminObject {
+    fn expect_function(&self) -> Result<&Function, KetaminError> {
+        if let KetaminValue::Function(function) = &self.value {
             Ok(function)
         } else {
-            Err(KetamineError::TypeError {
+            Err(KetaminError::TypeError {
                 expected: "function".to_owned(),
                 actual: "?".to_owned(),
             })
         }
     }
 
-    fn call_method(&mut self, method: &Ident, args: Vec<KetamineObject>) -> KetamineResult {
+    fn call_method(&mut self, method: &Ident, args: Vec<KetaminObject>) -> KetaminResult {
         if let Some(function) = self.methods.get(method) {
             unimplemented!()
         } else {
-            Err(KetamineError::UndeclaredVariable(method.clone().into()))
+            Err(KetaminError::UndeclaredVariable(method.clone().into()))
         }
     }
 
-    fn call(&mut self, scope: &Rc<RefCell<Scope>>, mut args: Vec<KetamineObjectRef>) -> KetamineResult {
+    fn call(&mut self, scope: &Rc<RefCell<Scope>>, mut args: Vec<KetaminObjectRef>) -> KetaminResult {
         match &self.value {
-            KetamineValue::NativeFunction(function) => {
+            KetaminValue::NativeFunction(function) => {
                 function(args)
             }
-            KetamineValue::Function(function) => {
+            KetaminValue::Function(function) => {
                 let mut function_scope = child_scope(scope);
                 for idx in 0..function.params.len() {
                     let parameter = &function.params[idx];
                     let argument = if args.is_empty() {
-                        KetamineObject::null()
+                        KetaminObject::null()
                     } else {
                         args.remove(0)
                     };
@@ -133,7 +133,7 @@ impl KetamineObject {
 
                 eval(&function_scope, AST::Code(function.code.clone()))
             }
-            _ => Err(KetamineError::TypeError {
+            _ => Err(KetaminError::TypeError {
                 expected: "function".to_owned(),
                 actual: "?".to_owned(),
             })
@@ -145,7 +145,7 @@ impl KetamineObject {
 #[derive(Debug)]
 pub struct Scope {
     pub parent: Option<Rc<RefCell<Scope>>>,
-    pub variables: HashMap<Ident, KetamineObjectRef>,
+    pub variables: HashMap<Ident, KetaminObjectRef>,
 }
 
 impl Default for Scope {
@@ -165,7 +165,7 @@ impl Scope {
         }
     }
 
-    pub fn find_ident(&self, ident: &Ident) -> Option<KetamineObjectRef> {
+    pub fn find_ident(&self, ident: &Ident) -> Option<KetaminObjectRef> {
         if let Some(var) = self.variables.get(ident) {
             Some(var.clone())
         } else if let Some(parent) = &self.parent {
@@ -175,7 +175,7 @@ impl Scope {
         }
     }
 
-    pub fn find_full_ident(&self, ident: &FullIdent) -> Option<KetamineObjectRef> {
+    pub fn find_full_ident(&self, ident: &FullIdent) -> Option<KetaminObjectRef> {
         let idents = &ident.0;
         let mut base = self.find_ident(&idents[0])?;
         for i in 1..idents.len() {
@@ -184,7 +184,7 @@ impl Scope {
         Some(base)
     }
 
-    pub fn set_ident(&mut self, ident: Ident, value: KetamineObjectRef) {
+    pub fn set_ident(&mut self, ident: Ident, value: KetaminObjectRef) {
         self.variables.insert(ident, value);
     }
 }
@@ -198,45 +198,45 @@ fn child_scope(parent: &Rc<RefCell<Scope>>) -> Rc<RefCell<Scope>> {
     ))
 }
 
-pub fn eval(scope: &Rc<RefCell<Scope>>, ast: AST) -> Result<KetamineObjectRef, KetamineError> {
+pub fn eval(scope: &Rc<RefCell<Scope>>, ast: AST) -> Result<KetaminObjectRef, KetaminError> {
     match ast {
         AST::Code(code) => {
             let child_scope = child_scope(scope);
             let mut last_value = None;
             for statement in code.0 {
                 match eval(&child_scope, statement) {
-                    Err(KetamineError::Returned(value)) => return Ok(value),
+                    Err(KetaminError::Returned(value)) => return Ok(value),
                     Err(other) => return Err(other),
                     Ok(x) => last_value = Some(x)
                 }
             }
-            Ok(last_value.unwrap_or_else(|| KetamineObject::null()))
+            Ok(last_value.unwrap_or_else(|| KetaminObject::null()))
         }
         AST::Var(Var(ident, value)) => {
             let value = eval(&scope, *value)?;
             scope.deref().borrow_mut().variables.insert(ident, value);
-            Ok(KetamineObject::null())
+            Ok(KetaminObject::null())
         }
         AST::Number(float) => {
-            Ok(KetamineObject::number(*float))
+            Ok(KetaminObject::number(*float))
         }
         AST::Call(Call { ident, args }) => {
             let args = args.into_iter()
                 .map(|arg| eval(scope, arg))
-                .collect::<Result<Vec<KetamineObjectRef>, KetamineError>>()?;
+                .collect::<Result<Vec<KetaminObjectRef>, KetaminError>>()?;
             scope.deref().borrow().find_full_ident(&ident)
-                .ok_or_else(|| KetamineError::UndeclaredVariable(ident))?
+                .ok_or_else(|| KetaminError::UndeclaredVariable(ident))?
                 .deref().borrow_mut()
                 .call(scope, args)
         }
         AST::Ident(ident) => {
             scope.deref().borrow()
                 .find_ident(&ident)
-                .ok_or_else(|| KetamineError::UndeclaredVariable(ident.into()))
+                .ok_or_else(|| KetaminError::UndeclaredVariable(ident.into()))
         }
         AST::FullIdent(ident) => {
             scope.deref().borrow().find_full_ident(&ident)
-                .ok_or_else(|| KetamineError::UndeclaredVariable(ident))
+                .ok_or_else(|| KetaminError::UndeclaredVariable(ident))
         }
         AST::BinaryOp(BinaryOperation(lhs, op, rhs)) => {
             let lhs = eval(scope, *lhs)?;
@@ -245,20 +245,20 @@ pub fn eval(scope: &Rc<RefCell<Scope>>, ast: AST) -> Result<KetamineObjectRef, K
                 BinaryOperator::Add => {
                     if lhs.is_number() && rhs.is_number() {
                         let result = *lhs.expect_number()? + *rhs.expect_number()?;
-                        Ok(KetamineObject::number(result))
+                        Ok(KetaminObject::number(result))
                     } else {
                         let mut string= lhs.to_string();
                         string.push_str(&rhs.to_string());
-                        Ok(KetamineObject::string(string))
+                        Ok(KetaminObject::string(string))
                     }
                 }
                 BinaryOperator::Mod => {
                     let result = *lhs.expect_number()? % *rhs.expect_number()?;
-                    Ok(KetamineObject::number(result))
+                    Ok(KetaminObject::number(result))
                 }
                 BinaryOperator::Eq => {
                     let result = lhs == rhs;
-                    Ok(KetamineObject::boolean(result))
+                    Ok(KetaminObject::boolean(result))
                 }
                 _ => unimplemented!()
             }
@@ -267,13 +267,13 @@ pub fn eval(scope: &Rc<RefCell<Scope>>, ast: AST) -> Result<KetamineObjectRef, K
             let value = if let Some(value) = value {
                 eval(scope, *value)?
             } else {
-                KetamineObject::null()
+                KetaminObject::null()
             };
-            Err(KetamineError::Returned(value))
+            Err(KetaminError::Returned(value))
         }
         AST::Function(function) => {
             let ident = function.ident.clone();
-            let function: KetamineObjectRef = function.into();
+            let function: KetaminObjectRef = function.into();
             scope.deref().borrow_mut().set_ident(ident, function.clone());
             Ok(function)
         }
@@ -282,9 +282,9 @@ pub fn eval(scope: &Rc<RefCell<Scope>>, ast: AST) -> Result<KetamineObjectRef, K
             for (k, v) in object.0 {
                 dict.insert(k.0, eval(scope, v)?);
             }
-            Ok(KetamineObject::dict(dict))
+            Ok(KetaminObject::dict(dict))
         }
-        AST::String(string) => Ok(KetamineObject::string(string)),
+        AST::String(string) => Ok(KetaminObject::string(string)),
         AST::If(clauses) => {
             for clause in clauses.0 {
                 let condition = eval(scope, *clause.condition)?.expect_bool()?;
@@ -292,26 +292,26 @@ pub fn eval(scope: &Rc<RefCell<Scope>>, ast: AST) -> Result<KetamineObjectRef, K
                     return eval(scope, AST::Code(clause.code))
                 }
             }
-            Ok(KetamineObject::null())
+            Ok(KetaminObject::null())
         },
-        AST::Boolean(bool) => Ok(KetamineObject::boolean(bool)),
+        AST::Boolean(bool) => Ok(KetaminObject::boolean(bool)),
         other => panic!("{:?} unimplemented", other)
     }
 }
 
-pub trait KetamineObjectExt {
+pub trait KetaminObjectExt {
     fn is_number(&self) -> bool;
     fn is_string(&self) -> bool;
-    fn expect_number(&self) -> Result<OrderedFloat<f64>, KetamineError>;
-    fn expect_bool(&self) -> Result<bool, KetamineError>;
+    fn expect_number(&self) -> Result<OrderedFloat<f64>, KetaminError>;
+    fn expect_bool(&self) -> Result<bool, KetaminError>;
     fn to_string(&self) -> String;
-    fn call_getter(&self, ident: &Ident) -> KetamineResult;
+    fn call_getter(&self, ident: &Ident) -> KetaminResult;
 
 }
 
-impl KetamineObjectExt for KetamineObjectRef {
+impl KetaminObjectExt for KetaminObjectRef {
     fn is_number(&self) -> bool {
-        if let KetamineValue::Number(_) = self.deref().borrow().value {
+        if let KetaminValue::Number(_) = self.deref().borrow().value {
             true
         } else {
             false
@@ -319,7 +319,7 @@ impl KetamineObjectExt for KetamineObjectRef {
     }
 
     fn is_string(&self) -> bool {
-        if let KetamineValue::String(_) = self.deref().borrow().value {
+        if let KetaminValue::String(_) = self.deref().borrow().value {
             true
         } else {
             false
@@ -327,20 +327,20 @@ impl KetamineObjectExt for KetamineObjectRef {
     }
 
 
-    fn expect_number(&self) -> Result<OrderedFloat<f64>, KetamineError> {
+    fn expect_number(&self) -> Result<OrderedFloat<f64>, KetaminError> {
         match self.deref().borrow().value {
-            KetamineValue::Number(num) => Ok(num.clone()),
-            _ => Err(KetamineError::TypeError {
+            KetaminValue::Number(num) => Ok(num.clone()),
+            _ => Err(KetaminError::TypeError {
                 expected: "number".to_owned(),
                 actual: "?".to_owned(),
             })
         }
     }
 
-    fn expect_bool(&self) -> Result<bool, KetamineError> {
+    fn expect_bool(&self) -> Result<bool, KetaminError> {
         match self.deref().borrow().value {
-            KetamineValue::Boolean(value) => Ok(value),
-            _ => Err(KetamineError::TypeError {
+            KetaminValue::Boolean(value) => Ok(value),
+            _ => Err(KetaminError::TypeError {
                 expected: "boolean".to_owned(),
                 actual: "?".to_owned(),
             })
@@ -349,18 +349,18 @@ impl KetamineObjectExt for KetamineObjectRef {
 
     fn to_string(&self) -> String {
         match &self.deref().borrow().value {
-            KetamineValue::Number(num) => num.to_string(),
-            KetamineValue::Null => "null".to_string(),
-            KetamineValue::String(string) => string.to_owned(),
-            KetamineValue::Boolean(boolean) => boolean.to_string(),
-            KetamineValue::Dict(object) => {
+            KetaminValue::Number(num) => num.to_string(),
+            KetaminValue::Null => "null".to_string(),
+            KetaminValue::String(string) => string.to_owned(),
+            KetaminValue::Boolean(boolean) => boolean.to_string(),
+            KetaminValue::Dict(object) => {
                 let content = object.iter()
                     .map(|(k, v)| format!("\"{}\": {}", k, v.to_string()))
                     .collect::<Vec<_>>()
                     .join(", ");
                 format!("{{{}}}", content)
             }
-            KetamineValue::Function(function) => {
+            KetaminValue::Function(function) => {
                 let params = function.params.iter()
                     .map(|ident| ident.0.clone())
                     .collect::<Vec<_>>()
@@ -371,27 +371,27 @@ impl KetamineObjectExt for KetamineObjectRef {
         }
     }
 
-    fn call_getter(&self, ident: &Ident) -> KetamineResult {
-        if let KetamineValue::Dict(dict) = &self.deref().borrow().value {
+    fn call_getter(&self, ident: &Ident) -> KetaminResult {
+        if let KetaminValue::Dict(dict) = &self.deref().borrow().value {
             let value = dict.get(&ident.0).
-                ok_or_else(|| KetamineError::UndeclaredVariable(ident.clone().into()))?;
+                ok_or_else(|| KetaminError::UndeclaredVariable(ident.clone().into()))?;
             Ok(value.clone())
         } else {
-            Err(KetamineError::UndeclaredVariable(ident.clone().into()))
+            Err(KetaminError::UndeclaredVariable(ident.clone().into()))
         }
     }
 }
 
-impl From<KetamineObject> for KetamineObjectRef {
-    fn from(obj: KetamineObject) -> Self {
+impl From<KetaminObject> for KetaminObjectRef {
+    fn from(obj: KetaminObject) -> Self {
         Rc::new(RefCell::new(obj))
     }
 }
 
-impl From<Function> for KetamineObjectRef {
+impl From<Function> for KetaminObjectRef {
     fn from(function: Function) -> Self {
-        KetamineObject {
-            value: KetamineValue::Function(function),
+        KetaminObject {
+            value: KetaminValue::Function(function),
             methods: Default::default(),
             getters: Default::default(),
             setters: Default::default(),

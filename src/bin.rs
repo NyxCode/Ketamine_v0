@@ -5,11 +5,11 @@ extern crate lazy_static;
 
 use crate::parser::{ParseResult, AST, Ident, Function, Code};
 use std::rc::Rc;
-use crate::interpreter2::{Scope, KetamineObject, KetamineValue, KetamineObjectRef, KetamineResult};
+use crate::interpreter2::{Scope, KetaminObject, KetaminValue, KetaminObjectRef, KetaminResult};
 use std::collections::HashMap;
 use std::cell::RefCell;
 use std::ops::Deref;
-use crate::interpreter2::KetamineObjectExt;
+use crate::interpreter2::KetaminObjectExt;
 
 mod parser;
 mod interpreter2;
@@ -43,14 +43,14 @@ fn main() -> ParseResult<()> {
     }));
 
     {
-        fn print(args: Vec<KetamineObjectRef>) -> KetamineResult {
+        fn print(args: Vec<KetaminObjectRef>) -> KetaminResult {
             println!("{}", args.iter().map(|arg| arg.to_string()).collect::<Vec<_>>().join(" "));
-            Ok(KetamineObject::null())
+            Ok(KetaminObject::null())
         }
 
         scope.deref().borrow_mut().set_ident(Ident("print".to_owned()),
-        Rc::new(RefCell::new(KetamineObject {
-            value: KetamineValue::NativeFunction(print),
+        Rc::new(RefCell::new(KetaminObject {
+            value: KetaminValue::NativeFunction(print),
             methods: Default::default(),
             getters: Default::default(),
             setters: Default::default()
