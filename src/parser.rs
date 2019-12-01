@@ -1,8 +1,8 @@
+use ordered_float::OrderedFloat;
 use pest::error::{Error as ParseError, ErrorVariant};
 use pest::iterators::{Pair, Pairs};
 use pest::{prec_climber::*, Parser};
 use serde::Serialize;
-use ordered_float::OrderedFloat;
 
 pub type ParseResult<T> = Result<T, pest::error::Error<Rule>>;
 
@@ -144,7 +144,6 @@ pub fn eval_expr(expression: Pairs<Rule>) -> AST {
 
 pub fn parse_source(src: &str) -> ParseResult<AST> {
     let file = KetaminParser::parse(Rule::FILE, src)?.next().unwrap();
-    println!("{:#?}", file);
     Ok(AST::Code(parse_code(file)?))
 }
 
@@ -245,9 +244,9 @@ pub fn parse_array(pair: Pair<Rule>) -> ParseResult<Array> {
 pub fn parse_if(pair: Pair<Rule>) -> ParseResult<If> {
     fn parse_clause(pair: Pair<Rule>) -> ParseResult<IfClause> {
         let rule = pair.as_rule();
-        assert!(rule == Rule::if_clause
-            || rule == Rule::else_if_clause
-            || rule == Rule::else_clause);
+        assert!(
+            rule == Rule::if_clause || rule == Rule::else_if_clause || rule == Rule::else_clause
+        );
 
         let mut inner = pair.into_inner();
         let condition = if rule == Rule::else_clause {
@@ -260,9 +259,11 @@ pub fn parse_if(pair: Pair<Rule>) -> ParseResult<If> {
     }
 
     assert_eq!(pair.as_rule(), Rule::if_condition);
-    Ok(pair.into_inner()
+    Ok(pair
+        .into_inner()
         .map(parse_clause)
-        .collect::<ParseResult<Vec<IfClause>>>().map(If)?)
+        .collect::<ParseResult<Vec<IfClause>>>()
+        .map(If)?)
 }
 
 pub fn parse_index(pair: Pair<Rule>) -> ParseResult<Index> {
@@ -284,7 +285,7 @@ pub fn parse_return(pair: Pair<Rule>) -> ParseResult<Option<Box<AST>>> {
     if let Some(next) = inner.next() {
         Err(ParseError::new_from_span(
             ErrorVariant::CustomError {
-                message: "return takes only one value".to_owned()
+                message: "return takes only one value".to_owned(),
             },
             next.as_span(),
         ))
