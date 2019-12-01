@@ -76,6 +76,9 @@ pub struct BinaryOperation(pub Box<AST>, pub BinaryOperator, pub Box<AST>);
 pub struct Object(pub Vec<(Ident, AST)>);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Assignment(pub FullIdent, pub Box<AST>);
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AST {
     Ident(Ident),
     FullIdent(FullIdent),
@@ -92,6 +95,7 @@ pub enum AST {
     Code(Code),
     Return(Option<Box<AST>>),
     Object(Object),
+    Assignment(Assignment)
 }
 
 lazy_static! {
@@ -144,6 +148,7 @@ pub fn eval_expr(expression: Pairs<Rule>) -> AST {
 
 pub fn parse_source(src: &str) -> ParseResult<AST> {
     let file = KetaminParser::parse(Rule::FILE, src)?.next().unwrap();
+    println!("{:#?}", file);
     Ok(AST::Code(parse_code(file)?))
 }
 
@@ -307,6 +312,14 @@ pub fn parse_object(pair: Pair<Rule>) -> ParseResult<Object> {
     Ok(Object(object))
 }
 
+pub fn parse_assignment(pair: Pair<Rule>) -> ParseResult<Assignment> {
+    assert_eq!(pair.as_rule(), Rule::assignment);
+    let mut inner = pair.into_inner();
+    let ident = parse_full_ident(inner.next().unwrap())?;
+    let value = recursive_parse(inner.next().unwrap())?;
+    Ok(Assignment(ident, Box::new(value)))
+}
+
 pub fn recursive_parse(pair: Pair<Rule>) -> ParseResult<AST> {
     match pair.as_rule() {
         Rule::ident => parse_ident(pair).map(AST::Ident),
@@ -325,6 +338,7 @@ pub fn recursive_parse(pair: Pair<Rule>) -> ParseResult<AST> {
         Rule::object => parse_object(pair).map(AST::Object),
         Rule::boolean_true => Ok(AST::Boolean(true)),
         Rule::boolean_false => Ok(AST::Boolean(false)),
+        Rule::assignment => parse_assignment(pair).map(AST::Assignment),
         v => {
             let variant = ErrorVariant::CustomError {
                 message: format!("unexpected pair: {:?}", v),

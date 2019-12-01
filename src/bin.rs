@@ -4,7 +4,7 @@ extern crate pest_derive;
 extern crate lazy_static;
 
 use crate::interpreter2::KetaminObjectExt;
-use crate::interpreter2::{KetaminObject, KetaminObjectRef, KetaminResult, KetaminValue, Scope};
+use crate::interpreter2::{KetaminObject, KetaminObjectRef, KetaminResult, Scope};
 use crate::parser::{Code, Function, Ident, ParseResult, AST};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -17,15 +17,10 @@ mod parser;
 fn main() -> ParseResult<()> {
     let ast = parser::parse_source(
         r#"
-            function fib(n) {
-                return if n < 3 {
-                    1;
-                } else {
-                    fib(n - 1) + fib(n - 2);
-                };
-            }
-
-            print(fib(25));
+            var dict = {a: 1};
+            print(dict);
+            dict.a = 2;
+            print(dict);
         "#,
     )?;
     let scope = Rc::new(RefCell::new(Scope {
@@ -47,12 +42,7 @@ fn main() -> ParseResult<()> {
 
         scope.deref().borrow_mut().set_ident(
             Ident("print".to_owned()),
-            Rc::new(RefCell::new(KetaminObject {
-                value: KetaminValue::NativeFunction(print),
-                methods: Default::default(),
-                getters: Default::default(),
-                setters: Default::default(),
-            })),
+            Rc::new(RefCell::new(KetaminObject::NativeFunction(print))),
         );
     }
 
