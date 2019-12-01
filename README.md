@@ -21,6 +21,6 @@ var myself = {
 };
 greet(myself);
 ```
-`Hallo, Herr Moritz Bischof!`
+`Hallo, Herr Bischof!`
 
 **This project is not meant for production use yet!**
