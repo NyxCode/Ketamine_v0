@@ -19,13 +19,19 @@ fn main() -> ParseResult<()> {
         r#"
             function greet(person) {
                 var prefix = if person.gender == "male" {
-                    "Herr "
+                    "Herr ";
                 } else if person.gender == "female" {
-                    "Frau "
-                } else { "" };
-
+                    "Frau ";
+                };
                 print("Hallo, " + prefix + person.first_name + " " + person.last_name + "!");
             }
+
+            var myself = {
+                gender: "male",
+                first_name: "Moritz",
+                last_name: "Bischof"
+            };
+            greet(myself);
         "#,
     )?;
     let scope = Rc::new(RefCell::new(Scope {

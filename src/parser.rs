@@ -39,7 +39,10 @@ pub struct Call {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct If {
+pub struct If(pub Vec<IfClause>);
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct IfClause {
     pub condition: Box<AST>,
     pub code: Code,
 }
@@ -77,6 +80,7 @@ pub enum AST {
     Ident(Ident),
     FullIdent(FullIdent),
     Number(OrderedFloat<f64>),
+    Boolean(bool),
     String(String),
     Array(Array),
     Var(Var),
@@ -239,11 +243,26 @@ pub fn parse_array(pair: Pair<Rule>) -> ParseResult<Array> {
 }
 
 pub fn parse_if(pair: Pair<Rule>) -> ParseResult<If> {
+    fn parse_clause(pair: Pair<Rule>) -> ParseResult<IfClause> {
+        let rule = pair.as_rule();
+        assert!(rule == Rule::if_clause
+            || rule == Rule::else_if_clause
+            || rule == Rule::else_clause);
+
+        let mut inner = pair.into_inner();
+        let condition = if rule == Rule::else_clause {
+            Box::new(AST::Boolean(true))
+        } else {
+            Box::new(recursive_parse(inner.next().unwrap())?)
+        };
+        let code = parse_code(inner.next().unwrap())?;
+        Ok(IfClause { condition, code })
+    }
+
     assert_eq!(pair.as_rule(), Rule::if_condition);
-    let mut inner = pair.into_inner();
-    let condition = Box::new(recursive_parse(inner.next().unwrap())?);
-    let code = parse_code(inner.next().unwrap())?;
-    Ok(If { condition, code })
+    Ok(pair.into_inner()
+        .map(parse_clause)
+        .collect::<ParseResult<Vec<IfClause>>>().map(If)?)
 }
 
 pub fn parse_index(pair: Pair<Rule>) -> ParseResult<Index> {
@@ -303,6 +322,8 @@ pub fn recursive_parse(pair: Pair<Rule>) -> ParseResult<AST> {
         Rule::index => parse_index(pair).map(AST::Index),
         Rule::return_ => parse_return(pair).map(AST::Return),
         Rule::object => parse_object(pair).map(AST::Object),
+        Rule::boolean_true => Ok(AST::Boolean(true)),
+        Rule::boolean_false => Ok(AST::Boolean(false)),
         v => {
             let variant = ErrorVariant::CustomError {
                 message: format!("unexpected pair: {:?}", v),

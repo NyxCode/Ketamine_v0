@@ -1,6 +1,6 @@
 use ordered_float::OrderedFloat;
 use std::collections::HashMap;
-use crate::parser::{Ident, Function, parse_source, AST, Var, Call, FullIdent, BinaryOperation, BinaryOperator};
+use crate::parser::{Ident, Function, parse_source, AST, Var, Call, FullIdent, BinaryOperation, BinaryOperator, recursive_parse};
 use std::rc::Rc;
 use pest::state;
 use std::borrow::{BorrowMut, Borrow};
@@ -202,14 +202,15 @@ pub fn eval(scope: &Rc<RefCell<Scope>>, ast: AST) -> Result<KetamineObjectRef, K
     match ast {
         AST::Code(code) => {
             let child_scope = child_scope(scope);
+            let mut last_value = None;
             for statement in code.0 {
                 match eval(&child_scope, statement) {
                     Err(KetamineError::Returned(value)) => return Ok(value),
                     Err(other) => return Err(other),
-                    _ => ()
+                    Ok(x) => last_value = Some(x)
                 }
             }
-            Ok(KetamineObject::null())
+            Ok(last_value.unwrap_or_else(|| KetamineObject::null()))
         }
         AST::Var(Var(ident, value)) => {
             let value = eval(&scope, *value)?;
@@ -242,8 +243,14 @@ pub fn eval(scope: &Rc<RefCell<Scope>>, ast: AST) -> Result<KetamineObjectRef, K
             let rhs = eval(scope, *rhs)?;
             match op {
                 BinaryOperator::Add => {
-                    let number = *lhs.expect_number()? + *rhs.expect_number()?;
-                    Ok(KetamineObject::number(number))
+                    if lhs.is_number() && rhs.is_number() {
+                        let result = *lhs.expect_number()? + *rhs.expect_number()?;
+                        Ok(KetamineObject::number(result))
+                    } else {
+                        let mut string= lhs.to_string();
+                        string.push_str(&rhs.to_string());
+                        Ok(KetamineObject::string(string))
+                    }
                 }
                 BinaryOperator::Mod => {
                     let result = *lhs.expect_number()? % *rhs.expect_number()?;
@@ -278,23 +285,63 @@ pub fn eval(scope: &Rc<RefCell<Scope>>, ast: AST) -> Result<KetamineObjectRef, K
             Ok(KetamineObject::dict(dict))
         }
         AST::String(string) => Ok(KetamineObject::string(string)),
+        AST::If(clauses) => {
+            for clause in clauses.0 {
+                let condition = eval(scope, *clause.condition)?.expect_bool()?;
+                if condition {
+                    return eval(scope, AST::Code(clause.code))
+                }
+            }
+            Ok(KetamineObject::null())
+        },
+        AST::Boolean(bool) => Ok(KetamineObject::boolean(bool)),
         other => panic!("{:?} unimplemented", other)
     }
 }
 
 pub trait KetamineObjectExt {
+    fn is_number(&self) -> bool;
+    fn is_string(&self) -> bool;
     fn expect_number(&self) -> Result<OrderedFloat<f64>, KetamineError>;
+    fn expect_bool(&self) -> Result<bool, KetamineError>;
     fn to_string(&self) -> String;
     fn call_getter(&self, ident: &Ident) -> KetamineResult;
 
 }
 
 impl KetamineObjectExt for KetamineObjectRef {
+    fn is_number(&self) -> bool {
+        if let KetamineValue::Number(_) = self.deref().borrow().value {
+            true
+        } else {
+            false
+        }
+    }
+
+    fn is_string(&self) -> bool {
+        if let KetamineValue::String(_) = self.deref().borrow().value {
+            true
+        } else {
+            false
+        }
+    }
+
+
     fn expect_number(&self) -> Result<OrderedFloat<f64>, KetamineError> {
         match self.deref().borrow().value {
             KetamineValue::Number(num) => Ok(num.clone()),
             _ => Err(KetamineError::TypeError {
                 expected: "number".to_owned(),
+                actual: "?".to_owned(),
+            })
+        }
+    }
+
+    fn expect_bool(&self) -> Result<bool, KetamineError> {
+        match self.deref().borrow().value {
+            KetamineValue::Boolean(value) => Ok(value),
+            _ => Err(KetamineError::TypeError {
+                expected: "boolean".to_owned(),
                 actual: "?".to_owned(),
             })
         }

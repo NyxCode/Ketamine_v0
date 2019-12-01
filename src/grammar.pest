@@ -12,7 +12,9 @@ string = ${ "\"" ~ __string ~ "\"" }
 number = @{ float | integer }
 	integer = @{ASCII_DIGIT+}
     float = @{integer ~ "." ~ integer}
-boolean = { "true" | "false" }
+boolean = _{ boolean_true | boolean_false }
+    boolean_true = { "true" }
+    boolean_false = { "false" }
 object = { "{" ~ (kv ~ ("," ~ kv)*)? ~ "}"}
 	kv = { ident ~ ":" ~ expression }
 array = { "[" ~ (expression ~ ("," ~ expression)*)? ~ "]"}
@@ -25,7 +27,7 @@ call = { full_ident ~ "(" ~ call_arguments? ~ ")" }
     call_arguments = { expression ~ ("," ~ expression)* }
 
 // Any expression which results in a value.
-_expression = _{ function | call | index | boolean | full_ident | object | array | string | number }
+_expression = _{ function | if_condition | call | index | boolean | full_ident | object | array | string | number }
 // Any statement
 statement = _{ function | for_each | while_loop | if_condition | ((return_ | break_ | var | assignment | expression) ~ ";") }
 code = { statement* }
@@ -36,7 +38,11 @@ return_ = {"return" ~ expression?}
 break_ = {"break" ~ expression?}
 for_each = { "for" ~ ident ~ "in" ~ full_ident ~ "{" ~ code ~ "}" }
 while_loop = { "while" ~ expression ~ "{" ~ code ~ "}" }
-if_condition = { "if" ~ expression ~ "{" ~ code ~ "}" }
+if_condition = { if_clause ~ else_if_clause* ~ else_clause? }
+
+if_clause = { "if" ~ expression ~ "{" ~ code ~ "}" }
+else_if_clause = { "else" ~ "if" ~ expression ~ "{" ~ code ~ "}" }
+else_clause = { "else" ~ "{" ~ code ~ "}" }
 
 
 operation = _{ op_add | op_sub | op_mul | op_div | op_pow | op_eq | op_not_eq | op_gt | op_lt | op_gt | op_ge | op_le | op_mod }
