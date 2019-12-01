@@ -25,7 +25,7 @@ call = { full_ident ~ "(" ~ call_arguments? ~ ")" }
     call_arguments = { expression ~ ("," ~ expression)* }
 
 // Any expression which results in a value.
-_expression = _{ call | index | boolean | full_ident | object | array | string | number }
+_expression = _{ function | call | index | boolean | full_ident | object | array | string | number }
 // Any statement
 statement = _{ function | for_each | while_loop | if_condition | ((return_ | break_ | var | assignment | expression) ~ ";") }
 code = { statement* }
