@@ -18,12 +18,15 @@ fn main() -> ParseResult<()> {
     let ast = parser::parse_source(
         r#"
             function greet(person) {
-                var prefix = if person.gender == "male" {
-                    "Herr ";
-                } else if person.gender == "female" {
-                    "Frau ";
-                };
-                print("Hallo, " + prefix + person.first_name + " " + person.last_name + "!");
+                print(
+                    "Hallo,",
+                    if person.gender == "male" {
+                        "Herr";
+                    } else if person.gender == "female" {
+                        "Frau";
+                    },
+                    person.first_name, person.last_name + "!"
+                );
             }
 
             var myself = {
