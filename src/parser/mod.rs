@@ -3,99 +3,45 @@ use pest::error::{Error as ParseError, ErrorVariant};
 use pest::iterators::{Pair, Pairs};
 use pest::{prec_climber::*, Parser};
 
+mod ast;
+pub use ast::*;
+
 pub type ParseResult<T> = Result<T, pest::error::Error<Rule>>;
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
 pub struct KetamineParser;
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Ident(pub String);
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FullIdent(pub Vec<Ident>);
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Code(pub Vec<AST>);
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Array(pub Vec<AST>);
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Var(pub Ident, pub Box<AST>);
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Function {
-    pub ident: Ident,
-    pub params: Vec<Ident>,
-    pub code: Code,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Call {
-    pub ident: FullIdent,
-    pub args: Vec<AST>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct If(pub Vec<IfClause>);
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct IfClause {
-    pub condition: Box<AST>,
-    pub code: Code,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Index {
-    pub receiver: Box<AST>,
-    pub index: Box<AST>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum BinaryOperator {
-    Eq,
-    Gt,
-    Lt,
-    Ge,
-    Le,
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Pow,
-    NotEq,
-    Mod,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct BinaryOperation(pub Box<AST>, pub BinaryOperator, pub Box<AST>);
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Object(pub Vec<(Ident, AST)>);
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Assignment(pub FullIdent, pub Box<AST>);
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum AST {
-    Ident(Ident),
-    FullIdent(FullIdent),
-    Number(OrderedFloat<f64>),
-    Boolean(bool),
-    Null,
-    String(String),
-    Array(Array),
-    Var(Var),
-    Function(Function),
-    Call(Call),
-    Index(Index),
-    If(If),
-    BinaryOp(BinaryOperation),
-    Code(Code),
-    Return(Option<Box<AST>>),
-    Object(Object),
-    Assignment(Assignment),
+pub fn recursive_parse(pair: Pair<Rule>) -> ParseResult<AST> {
+    match pair.as_rule() {
+        Rule::ident => parse_ident(pair).map(AST::Ident),
+        Rule::full_ident => parse_full_ident(pair).map(AST::FullIdent),
+        Rule::number => parse_number(pair).map(OrderedFloat::from).map(AST::Number),
+        Rule::string => parse_string(pair).map(AST::String),
+        Rule::var => parse_var(pair).map(AST::Var),
+        Rule::expression => Ok(eval_expr(pair.into_inner())),
+        Rule::function => parse_function(pair).map(AST::Function),
+        Rule::call => parse_call(pair).map(AST::Call),
+        Rule::code => parse_code(pair).map(AST::Code),
+        Rule::array => parse_array(pair).map(AST::Array),
+        Rule::if_condition => parse_if(pair).map(AST::If),
+        Rule::index => parse_index(pair).map(AST::Index),
+        Rule::return_ => parse_scope_break(pair).map(AST::BreakScope),
+        Rule::object => parse_object(pair).map(AST::Object),
+        Rule::boolean_true => Ok(AST::Boolean(true)),
+        Rule::boolean_false => Ok(AST::Boolean(false)),
+        Rule::null => Ok(AST::Null),
+        Rule::assignment => parse_assignment(pair).map(AST::Assignment),
+        Rule::for_each => parse_for_each(pair).map(AST::ForEach),
+        Rule::while_loop => parse_while(pair).map(AST::While),
+        Rule::break_ => parse_break(pair).map(AST::BreakScope),
+        v => {
+            let variant = ErrorVariant::CustomError {
+                message: format!("unexpected pair: {:?}", v),
+            };
+            Err(ParseError::new_from_span(variant, pair.as_span()))
+        }
+    }
 }
 
 lazy_static! {
@@ -283,23 +229,16 @@ pub fn parse_index(pair: Pair<Rule>) -> ParseResult<Index> {
     Ok(Index { receiver, index })
 }
 
-pub fn parse_return(pair: Pair<Rule>) -> ParseResult<Option<Box<AST>>> {
-    assert_eq!(pair.as_rule(), Rule::return_);
+pub fn parse_scope_break(pair: Pair<Rule>) -> ParseResult<Option<Box<AST>>> {
+    assert!(
+        pair.as_rule() == Rule::return_,
+        pair.as_rule() == Rule::break_
+    );
     let mut inner = pair.into_inner();
-    let value = if let Some(value) = inner.next() {
-        Some(Box::new(recursive_parse(value)?))
+    if let Some(value) = inner.next() {
+        Ok(Some(Box::new(recursive_parse(value)?)))
     } else {
-        None
-    };
-    if let Some(next) = inner.next() {
-        Err(ParseError::new_from_span(
-            ErrorVariant::CustomError {
-                message: "return takes only one value".to_owned(),
-            },
-            next.as_span(),
-        ))
-    } else {
-        Ok(value)
+        Ok(None)
     }
 }
 
@@ -324,37 +263,33 @@ pub fn parse_assignment(pair: Pair<Rule>) -> ParseResult<Assignment> {
     Ok(Assignment(ident, Box::new(value)))
 }
 
-pub fn recursive_parse(pair: Pair<Rule>) -> ParseResult<AST> {
-    match pair.as_rule() {
-        Rule::ident => parse_ident(pair).map(AST::Ident),
-        Rule::full_ident => parse_full_ident(pair).map(AST::FullIdent),
-        Rule::number => parse_number(pair).map(OrderedFloat::from).map(AST::Number),
-        Rule::string => parse_string(pair).map(AST::String),
-        Rule::var => parse_var(pair).map(AST::Var),
-        Rule::expression => Ok(eval_expr(pair.into_inner())),
-        Rule::function => parse_function(pair).map(AST::Function),
-        Rule::call => parse_call(pair).map(AST::Call),
-        Rule::code => parse_code(pair).map(AST::Code),
-        Rule::array => parse_array(pair).map(AST::Array),
-        Rule::if_condition => parse_if(pair).map(AST::If),
-        Rule::index => parse_index(pair).map(AST::Index),
-        Rule::return_ => parse_return(pair).map(AST::Return),
-        Rule::object => parse_object(pair).map(AST::Object),
-        Rule::boolean_true => Ok(AST::Boolean(true)),
-        Rule::boolean_false => Ok(AST::Boolean(false)),
-        Rule::null => Ok(AST::Null),
-        Rule::assignment => parse_assignment(pair).map(AST::Assignment),
-        v => {
-            let variant = ErrorVariant::CustomError {
-                message: format!("unexpected pair: {:?}", v),
-            };
-            Err(ParseError::new_from_span(variant, pair.as_span()))
-        }
-    }
+pub fn parse_for_each(pair: Pair<Rule>) -> ParseResult<ForEach> {
+    assert_eq!(pair.as_rule(), Rule::for_each);
+    let mut inner = pair.into_inner();
+    let binding = parse_ident(inner.next().unwrap())?;
+    let iterable = Box::new(recursive_parse(inner.next().unwrap())?);
+    let code = parse_code(inner.next().unwrap())?;
+    Ok(ForEach {
+        binding,
+        iterable,
+        code,
+    })
 }
 
-impl From<Ident> for FullIdent {
-    fn from(i: Ident) -> Self {
-        FullIdent(vec![i])
+pub fn parse_while(pair: Pair<Rule>) -> ParseResult<While> {
+    assert_eq!(pair.as_rule(), Rule::while_loop);
+    let mut inner = pair.into_inner();
+    let condition = recursive_parse(inner.next().unwrap())?.into();
+    let code = parse_code(inner.next().unwrap())?;
+    Ok(While { condition, code })
+}
+
+pub fn parse_break(pair: Pair<Rule>) -> ParseResult<Option<Box<AST>>> {
+    assert_eq!(pair.as_rule(), Rule::break_);
+    let mut inner = pair.into_inner();
+    if let Some(value) = inner.next() {
+        Ok(Some(Box::new(recursive_parse(value)?)))
+    } else {
+        Ok(None)
     }
 }

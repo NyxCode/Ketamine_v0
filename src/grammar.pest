@@ -37,7 +37,7 @@ function = { "function " ~ ident ~ "(" ~ function_parameters? ~ ")" ~ "{" ~ code
 
 return_ = {"return" ~ expression?}
 break_ = {"break" ~ expression?}
-for_each = { "for" ~ ident ~ "in" ~ full_ident ~ "{" ~ code ~ "}" }
+for_each = { "for" ~ ident ~ "in" ~ expression ~ "{" ~ code ~ "}" }
 while_loop = { "while" ~ expression ~ "{" ~ code ~ "}" }
 if_condition = { if_clause ~ else_if_clause* ~ else_clause? }
 
