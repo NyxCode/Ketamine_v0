@@ -1,8 +1,8 @@
 use crate::parser::{
-    Array, Assignment, BinaryOperation, BinaryOperator, Call, ForEach, FullIdent, Function, Ident,
+    Array, Assignment, BinaryOperation, BinaryOperator, Call, ForEach, FullIdent, Function,
     Index, Var, While, AST,
 };
-use ordered_float::OrderedFloat;
+
 
 use serde::export::fmt::Error;
 use std::cell::RefCell;
@@ -13,9 +13,9 @@ use std::fmt::Formatter;
 use std::ops::Deref;
 use std::rc::Rc;
 
-mod types;
-mod scope;
 mod object;
+mod scope;
+mod types;
 pub use object::*;
 pub use scope::*;
 pub use types::*;

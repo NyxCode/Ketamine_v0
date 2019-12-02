@@ -1,10 +1,10 @@
-use crate::interpreter::{RefCounted, KetamineObject, KetamineResult, KetamineError};
+use crate::interpreter::KetamineError::UndeclaredVariable;
+use crate::interpreter::{KetamineError, KetamineObject, KetamineResult, RefCounted};
+use crate::parser::{FullIdent, Ident};
+use std::cell::RefCell;
 use std::collections::HashMap;
-use crate::parser::{Ident, FullIdent};
 use std::ops::Deref;
 use std::rc::Rc;
-use std::cell::RefCell;
-use crate::interpreter::KetamineError::UndeclaredVariable;
 
 #[derive(Debug)]
 pub struct Scope {
@@ -13,7 +13,6 @@ pub struct Scope {
 }
 
 pub type ScopeRef = Rc<RefCell<Scope>>;
-
 
 impl Default for Scope {
     fn default() -> Self {
@@ -55,8 +54,10 @@ impl Scope {
         let idents = &ident.0;
         let mut base = self.get_var(&idents[0])?;
         for child_ident in &idents[1..] {
-            base = base.expect_dict()?
-                .deref().borrow()
+            base = base
+                .expect_dict()?
+                .deref()
+                .borrow()
                 .get(&child_ident.0)
                 .cloned()
                 .ok_or_else(|| KetamineError::UndeclaredVariable(ident.clone()))?;
@@ -64,11 +65,7 @@ impl Scope {
         Ok(base)
     }
 
-    pub fn assign(
-        &mut self,
-        ident: FullIdent,
-        value: KetamineObject,
-    ) -> Result<(), KetamineError> {
+    pub fn assign(&mut self, ident: FullIdent, value: KetamineObject) -> Result<(), KetamineError> {
         let idents = &ident.0;
         let base_ident = &idents[0];
 
@@ -82,12 +79,17 @@ impl Scope {
                 // we are setting a property of an object, e.g "object.property = 1"
                 let mut dict = self.get_var(base_ident)?.expect_dict()?;
                 for child_ident in &idents[1..(idents.len() - 1)] {
-                    let child_dict = dict.deref().borrow().get(&child_ident.0)
+                    let child_dict = dict
+                        .deref()
+                        .borrow()
+                        .get(&child_ident.0)
                         .ok_or_else(|| UndeclaredVariable(ident.clone()))?
                         .expect_dict()?;
                     dict = child_dict;
                 }
-                dict.deref().borrow_mut().insert(idents.last().unwrap().0.clone(), value);
+                dict.deref()
+                    .borrow_mut()
+                    .insert(idents.last().unwrap().0.clone(), value);
                 Ok(())
             }
         }

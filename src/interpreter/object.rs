@@ -1,10 +1,10 @@
+use crate::interpreter::{child_scope, KetamineError, KetamineResult, RefCounted, ScopeRef};
+use crate::parser::{Function, AST};
 use ordered_float::OrderedFloat;
-use crate::interpreter::{RefCounted, KetamineResult, KetamineError, ScopeRef, child_scope};
-use std::collections::HashMap;
-use crate::parser::{Function, Ident, AST};
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::ops::Deref;
+use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum KetamineObject {
@@ -58,7 +58,7 @@ impl KetamineObject {
 impl KetamineObject {
     pub fn type_name(&self) -> &'static str {
         match self {
-            KetamineObject::String(string) => "<string>",
+            KetamineObject::String(_) => "<string>",
             KetamineObject::Null => "<null>",
             KetamineObject::Number(_) => "<number>",
             KetamineObject::Array(_) => "<array>",
@@ -103,7 +103,9 @@ impl KetamineObject {
         }
     }
 
-    pub fn expect_dict(&self) -> Result<Rc<RefCell<HashMap<String, KetamineObject>>>, KetamineError> {
+    pub fn expect_dict(
+        &self,
+    ) -> Result<Rc<RefCell<HashMap<String, KetamineObject>>>, KetamineError> {
         match self {
             KetamineObject::Dict(dict) => Ok(dict.clone()),
             _ => Err(KetamineError::TypeError {
@@ -112,8 +114,16 @@ impl KetamineObject {
             }),
         }
     }
+    pub fn expect_string(&self) -> Result<&str, KetamineError> {
+        match self {
+            KetamineObject::String(string) => Ok(string),
+            _ => Err(KetamineError::TypeError {
+                expected: "<string>".to_owned(),
+                actual: self.type_name().to_owned(),
+            }),
+        }
+    }
 }
-
 
 impl KetamineObject {
     pub fn invoke(&self, scope: &ScopeRef, mut args: Vec<KetamineObject>) -> KetamineResult {
