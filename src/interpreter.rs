@@ -55,6 +55,10 @@ impl KetamineObject {
     fn string(value: String) -> KetamineObjectRef {
         RefCell::new(KetamineObject::String(value)).into()
     }
+
+    fn native_fn(f: fn(Vec<KetamineObjectRef>) -> KetamineResult) -> KetamineObjectRef {
+        RefCell::new(KetamineObject::NativeFunction(f)).into()
+    }
 }
 
 #[derive(Debug)]
@@ -110,6 +114,10 @@ impl Scope {
         }
         dict.call_setter(&idents.last().unwrap(), value)
     }
+
+    pub fn native_function(&mut self, name: &str, f: fn(Vec<KetamineObjectRef>) -> KetamineResult) {
+        self.variables.insert(Ident(name.to_owned()), KetamineObject::native_fn(f));
+    }
 }
 
 fn child_scope(parent: &Rc<RefCell<Scope>>) -> Rc<RefCell<Scope>> {
@@ -119,13 +127,13 @@ fn child_scope(parent: &Rc<RefCell<Scope>>) -> Rc<RefCell<Scope>> {
     }))
 }
 
+#[inline(always)]
 pub fn eval(scope: &Rc<RefCell<Scope>>, ast: AST) -> Result<KetamineObjectRef, KetamineError> {
     match ast {
         AST::Code(code) => {
-            let child_scope = child_scope(scope);
             let mut last_value = None;
             for statement in code.0 {
-                match eval(&child_scope, statement) {
+                match eval(&scope, statement) {
                     Err(KetamineError::Returned(value)) => return Ok(value),
                     Err(other) => return Err(other),
                     Ok(x) => last_value = Some(x),
@@ -183,6 +191,11 @@ pub fn eval(scope: &Rc<RefCell<Scope>>, ast: AST) -> Result<KetamineObjectRef, K
                     let result = lhs == rhs;
                     Ok(KetamineObject::boolean(result))
                 }
+                BinaryOperator::NotEq => {
+                    let result = lhs != rhs;
+                    Ok(KetamineObject::boolean(result))
+                }
+
                 BinaryOperator::Lt => {
                     let result = *lhs.expect_number()? < *rhs.expect_number()?;
                     Ok(KetamineObject::boolean(result))
@@ -229,6 +242,7 @@ pub fn eval(scope: &Rc<RefCell<Scope>>, ast: AST) -> Result<KetamineObjectRef, K
             Ok(KetamineObject::null())
         }
         AST::Boolean(bool) => Ok(KetamineObject::boolean(bool)),
+        AST::Null => Ok(KetamineObject::null()),
         AST::Assignment(Assignment(ident, value)) => {
             let value = eval(scope, *value)?;
             scope.deref().borrow_mut().set_full_ident(&ident, value)?;
@@ -373,5 +387,29 @@ impl From<KetamineObject> for KetamineObjectRef {
 impl From<Function> for KetamineObjectRef {
     fn from(function: Function) -> Self {
         KetamineObject::Function(function).into()
+    }
+}
+
+impl Display for KetamineError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            KetamineError::UndeclaredVariable(ident) =>
+                write!(f, "undeclared variable or function \"{}\"", ident),
+            KetamineError::TypeError { expected, actual } =>
+                write!(f, "expected {}, got {}", expected, actual),
+            other => write!(f, "{:?}", other)
+        }
+    }
+}
+
+use std::fmt::Display;
+use std::fmt::Formatter;
+
+impl Display for FullIdent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let path = self.0.iter()
+            .map(|ident| ident.0.to_owned())
+            .collect::<Vec<_>>().join(".");
+        write!(f, "{}", path)
     }
 }

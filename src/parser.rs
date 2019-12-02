@@ -83,6 +83,7 @@ pub enum AST {
     FullIdent(FullIdent),
     Number(OrderedFloat<f64>),
     Boolean(bool),
+    Null,
     String(String),
     Array(Array),
     Var(Var),
@@ -341,6 +342,7 @@ pub fn recursive_parse(pair: Pair<Rule>) -> ParseResult<AST> {
         Rule::object => parse_object(pair).map(AST::Object),
         Rule::boolean_true => Ok(AST::Boolean(true)),
         Rule::boolean_false => Ok(AST::Boolean(false)),
+        Rule::null => Ok(AST::Null),
         Rule::assignment => parse_assignment(pair).map(AST::Assignment),
         v => {
             let variant = ErrorVariant::CustomError {

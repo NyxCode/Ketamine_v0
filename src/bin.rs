@@ -5,44 +5,16 @@ extern crate lazy_static;
 
 use crate::interpreter::KetamineObjectExt;
 use crate::interpreter::{KetamineObject, KetamineObjectRef, KetamineResult, Scope};
-use crate::parser::{Ident, ParseResult};
+use crate::parser::ParseResult;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::rc::Rc;
+use std::io::{stdin, stdout, Write};
 
 mod interpreter;
 mod parser;
 
 fn main() -> ParseResult<()> {
-    let ast = parser::parse_source(
-        r#"
-                function greet(person) {
-                    print(
-                        "Hallo,",
-                        if person.gender == "male" {
-                            "Herr";
-                        } else if person.gender == "female" {
-                            "Frau";
-                        },
-                        person.last_name + "!"
-                    );
-                }
-
-                var myself = {
-                    gender: "male",
-                    first_name: "Moritz",
-                    last_name: "Bischof"
-                };
-                greet(myself);
-        "#,
-    )?;
-
-    let scope = Rc::new(RefCell::new(Scope {
-        parent: None,
-        variables: HashMap::new(),
-    }));
-
     fn print(args: Vec<KetamineObjectRef>) -> KetamineResult {
         println!(
             "{}",
@@ -54,11 +26,35 @@ fn main() -> ParseResult<()> {
         Ok(KetamineObject::null())
     }
 
-    scope.deref().borrow_mut().set_ident(
-        Ident("print".to_owned()),
-        Rc::new(RefCell::new(KetamineObject::NativeFunction(print))),
-    );
+    fn exit(_: Vec<KetamineObjectRef>) -> KetamineResult {
+        std::process::exit(0);
+    }
 
-    interpreter::eval(&scope, ast).expect("evaluation failed!");
-    Ok(())
+    let mut scope = Scope {
+        parent: None,
+        variables: HashMap::new(),
+    };
+
+    scope.native_function("print", print);
+    scope.native_function("exit", exit);
+    let scope = Rc::new(RefCell::new(scope));
+
+    let mut line = String::new();
+    loop  {
+        line.clear();
+        print!("> ");
+        stdout().flush().unwrap();
+        stdin().read_line(&mut line).unwrap();
+        match parser::parse_source(&line.trim_matches('\n')) {
+            Ok(ast) => match interpreter::eval(&scope, ast) {
+                Err(e) => println!(" --> execution error: {}", e),
+                Ok(res) => println!(" --> {}", res.to_string())
+            },
+            Err(e) => {
+                println!("{}\n", e);
+                continue;
+            }
+        };
+
+    }
 }
