@@ -3,8 +3,9 @@ use pest::error::{Error as ParseError, ErrorVariant};
 use pest::iterators::{Pair, Pairs};
 use pest::{prec_climber::*, Parser};
 
-mod ast;
 pub use ast::*;
+
+mod ast;
 
 pub type ParseResult<T> = Result<T, pest::error::Error<Rule>>;
 

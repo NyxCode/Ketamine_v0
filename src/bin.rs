@@ -1,15 +1,14 @@
 #[macro_use]
-extern crate pest_derive;
-#[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate pest_derive;
+
+use std::cell::RefCell;
+use std::io::{stdin, stdout, Write};
+use std::rc::Rc;
 
 use crate::interpreter::{KetamineObject, Scope};
 use crate::parser::ParseResult;
-use std::cell::RefCell;
-
-use std::io::{stdin, stdout, Write};
-
-use std::rc::Rc;
 
 mod interpreter;
 mod parser;

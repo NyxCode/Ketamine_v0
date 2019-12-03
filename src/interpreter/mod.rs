@@ -1,10 +1,3 @@
-use crate::parser::{
-    Array, Assignment, BinaryOperation, BinaryOperator, Call, ForEach, FullIdent, Function,
-    Index, Var, While, AST,
-};
-
-
-use serde::export::fmt::Error;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -13,12 +6,20 @@ use std::fmt::Formatter;
 use std::ops::Deref;
 use std::rc::Rc;
 
-mod object;
-mod scope;
-mod types;
+use serde::export::fmt::Error;
+
 pub use object::*;
 pub use scope::*;
 pub use types::*;
+
+use crate::parser::{
+    Array, Assignment, BinaryOperation, BinaryOperator, Call, ForEach, FullIdent, Function, Index,
+    Var, While, AST,
+};
+
+mod object;
+mod scope;
+mod types;
 
 impl Debug for NativeFunction {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {

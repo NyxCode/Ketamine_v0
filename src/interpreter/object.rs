@@ -1,10 +1,12 @@
-use crate::interpreter::{child_scope, KetamineError, KetamineResult, RefCounted, ScopeRef};
-use crate::parser::{Function, AST};
-use ordered_float::OrderedFloat;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
+
+use ordered_float::OrderedFloat;
+
+use crate::interpreter::{child_scope, KetamineError, KetamineResult, RefCounted, ScopeRef};
+use crate::parser::{Function, AST};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum KetamineObject {

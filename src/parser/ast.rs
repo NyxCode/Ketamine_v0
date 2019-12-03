@@ -45,7 +45,7 @@ pub struct Index {
 
 #[rustfmt::skip]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum BinaryOperator { Eq, Gt, Lt, Ge, Le, Add, Sub, Mul, Div, Pow, NotEq, Mod, }
+pub enum BinaryOperator { Eq, Gt, Lt, Ge, Le, Add, Sub, Mul, Div, Pow, NotEq, Mod }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BinaryOperation(pub Box<AST>, pub BinaryOperator, pub Box<AST>);

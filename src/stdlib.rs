@@ -1,5 +1,6 @@
-use crate::interpreter::{KetamineError, KetamineObject, KetamineResult};
 use std::ops::Deref;
+
+use crate::interpreter::{KetamineError, KetamineObject, KetamineResult};
 
 fn expect_len<T>(args: &[T], n: usize) -> Result<(), KetamineError> {
     if args.len() != n {

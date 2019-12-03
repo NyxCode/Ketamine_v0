@@ -1,7 +1,8 @@
-use crate::interpreter::KetamineObject;
-use crate::parser::{FullIdent};
 use std::cell::RefCell;
 use std::rc::Rc;
+
+use crate::interpreter::KetamineObject;
+use crate::parser::FullIdent;
 
 pub type KetamineResult = Result<KetamineObject, KetamineError>;
 pub type RefCounted<T> = Rc<RefCell<T>>;

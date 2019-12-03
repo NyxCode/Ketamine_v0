@@ -1,10 +1,11 @@
-use crate::interpreter::KetamineError::UndeclaredVariable;
-use crate::interpreter::{KetamineError, KetamineObject, KetamineResult, RefCounted};
-use crate::parser::{FullIdent, Ident};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
+
+use crate::interpreter::KetamineError::UndeclaredVariable;
+use crate::interpreter::{KetamineError, KetamineObject, KetamineResult, RefCounted};
+use crate::parser::{FullIdent, Ident};
 
 #[derive(Debug)]
 pub struct Scope {
